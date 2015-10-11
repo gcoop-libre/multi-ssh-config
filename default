@@ -1,0 +1,14 @@
+Host *
+     ProtocolKeepAlives 30
+     ControlMaster auto
+     ControlPath ~/.ssh/.master-%r@%h:%p
+     Compression yes
+     Protocol 2
+     CompressionLevel 7
+     Cipher blowfish
+     ServerAliveCountMax 3
+     ServerAliveInterval 600
+     StrictHostKeyChecking yes
+     VisualHostKey yes
+     NoHostAuthenticationForLocalhost yes
+     LogLevel FATAL

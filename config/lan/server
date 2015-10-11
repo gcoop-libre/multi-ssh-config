@@ -1,0 +1,6 @@
+Hostname 192.168.0.1
+LocalForward 3001 localhost:3306
+LocalForward 8001 localhost:80
+LocalForward 2202 192.168.0.2:22
+LocalForward 2203 192.168.0.3:22
+LocalForward 2204 192.168.1.4:22

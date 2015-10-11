@@ -1,0 +1,229 @@
+#+TITLE:     Multi SSH Config
+#+AUTHOR:    Osiris Alejandro Gómez
+#+EMAIL:     osiris@gcoop.coop
+#+LANGUAGE:  en
+#+LINK:      ISSUE https://github.com/gcoop-libre/multi-ssh-config/issues/
+#+INCLUDE:   "msc.org"
+
+
+** overview
+
+   Generate =~/.ssh/config= from multiple directories and files with one host
+   config per file.
+
+** install
+
+   Clone the repository:
+
+   #+BEGIN_SRC sh :session :results none :exports code
+     cd ~
+     git clone https://github.com/gcoop-libre/multi-ssh-config
+   #+END_SRC
+
+   Add to =~/.bashrc=:
+
+   #+BEGIN_SRC sh :session :results none :exports code
+     if [ -d "$HOME/multi-ssh-config" ]
+     then
+         PATH="$HOME/multi-ssh-config:$PATH"
+     fi
+   #+END_SRC
+
+** sshconfig
+
+   After edit hosts and alias files in =config= directory you can run:
+
+   #+BEGIN_SRC sh :session :results output :exports both
+     cd ~/multi-ssh-config
+     ./sshconfig
+   #+END_SRC
+
+   #+RESULTS:
+   #+begin_example
+   Backup /home/osiris/.ssh/config to /home/osiris/.ssh/bak/config.1444569026
+   Add default to /home/osiris/.ssh/config
+   Add custom to /home/osiris/.ssh/config
+   Host server ...
+   Host server2 ...
+   Host vm2 ... 7 alias
+   Host vm3 ... 7 alias
+   Host bitbucket ... 1 alias
+   Host github ... 1 alias
+   Move /home/osiris/.ssh/config.tmp to /home/osiris/.ssh/config
+   Total lines: 115
+   Total Hosts: 24
+   Enable Ansible Host Generation
+   group lan .... 4 hosts 
+   group public .. 2 hosts 
+   source /home/osiris/.pssh_alias
+#+end_example
+
+   The result is a file =~/.ssh/config= with all hosts configurations:
+ 
+   #+BEGIN_SRC sh :session :results output
+     cat ~/.ssh/config
+   #+END_SRC
+
+   #+RESULTS:
+   #+begin_example
+   Host *
+        ProtocolKeepAlives 30
+        ControlMaster auto
+        ControlPath ~/.ssh/.master-%r@%h:%p
+        Compression yes
+        Protocol 2
+        CompressionLevel 7
+        Cipher blowfish
+        ServerAliveCountMax 3
+        ServerAliveInterval 600
+        StrictHostKeyChecking yes
+        VisualHostKey yes
+        NoHostAuthenticationForLocalhost yes
+        LogLevel FATAL
+
+   Host 192.168.0.*
+        StrictHostKeyChecking no
+        UserKnownHostsFile=/dev/null
+
+   Host server
+        Hostname 192.168.0.1
+        LocalForward 3001 127.0.0.1:3306
+        LocalForward 8001 127.0.0.1:80
+        LocalForward 2202 192.168.0.2:22
+        LocalForward 2203 192.168.0.3:22
+        LocalForward 2204 192.168.1.4:22
+
+   Host server2
+        Hostname 127.0.0.1
+        Port 2204
+
+   Host vm2
+        Hostname 127.0.0.1
+        Port 2202
+
+   Host domain1
+        Hostname 127.0.0.1
+        Port 2202
+
+   Host domain2
+        Hostname 127.0.0.1
+        Port 2202
+
+   Host domain3
+        Hostname 127.0.0.1
+        Port 2202
+
+   Host domain4
+        Hostname 127.0.0.1
+        Port 2202
+
+   Host domain5
+        Hostname 127.0.0.1
+        Port 2202
+
+   Host domain6
+        Hostname 127.0.0.1
+        Port 2202
+
+   Host domain7
+        Hostname 127.0.0.1
+        Port 2202
+
+
+   Host vm3
+        Hostname 127.0.0.1
+        Port 2203
+
+   Host domain31
+        Hostname 127.0.0.1
+        Port 2203
+
+   Host domain32
+        Hostname 127.0.0.1
+        Port 2203
+
+   Host domain33
+        Hostname 127.0.0.1
+        Port 2203
+
+   Host domain34
+        Hostname 127.0.0.1
+        Port 2203
+
+   Host domain35
+        Hostname 127.0.0.1
+        Port 2203
+
+   Host domain36
+        Hostname 127.0.0.1
+        Port 2203
+
+   Host domain37
+        Hostname 127.0.0.1
+        Port 2203
+
+
+   Host bitbucket
+        Hostname bitbucket.org
+        User git
+
+   Host bitbucket.org
+        Hostname bitbucket.org
+        User git
+
+
+   Host github
+        Hostname github.com
+        User git
+
+   Host github.com
+        Hostname github.com
+        User git
+
+
+#+end_example
+
+** Ready for =ansible= and =parallel-ssh=
+
+   By default generate a =ansible= hosts file:
+
+   #+BEGIN_SRC sh :session :results output :exports both
+     cat /etc/ansible/hosts
+   #+END_SRC
+
+   #+RESULTS:
+   #+begin_example
+   [lan]
+   server
+   server2
+   vm2
+   vm3
+
+   [public]
+   bitbucket
+   github
+
+#+end_example
+
+   By default generate a =parallel-ssh= alias file:
+
+   #+BEGIN_SRC sh :session :results output :exports both
+     cat ~/.pssh_alias
+   #+END_SRC
+
+   #+RESULTS:
+   : alias lan='/usr/bin/parallel-ssh -i -h /home/osiris/multi-ssh-config/groups/lan'
+   : alias lanbackup='/usr/bin/parallel-ssh -i -h /home/osiris/multi-ssh-config/groups/lan -l backuprsync'
+   : alias public='/usr/bin/parallel-ssh -i -h /home/osiris/multi-ssh-config/groups/public'
+   : alias publicbackup='/usr/bin/parallel-ssh -i -h /home/osiris/multi-ssh-config/groups/public -l backuprsync'
+
+** Visualization
+
+   With parameter =-d= generate a =.dot= file for /Graphviz/
+
+   #+BEGIN_SRC sh :session :results none :exports code
+     cd ~/multi-ssh-config
+     ./sshconfig -d
+   #+END_SRC
+
+   [[file:config.png]]

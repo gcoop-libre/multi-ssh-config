@@ -1,0 +1,332 @@
+#!/usr/bin/env bash
+
+# This script comes with ABSOLUTELY NO WARRANTY, use at own risk
+# Copyright (C) 2015 Osiris Alejandro Gomez <osiris@gcoop.coop>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+PID=`echo $$`
+TIMESTAMP=`date +%s`
+CFG="$HOME/.ssh/config"
+DIR="$HOME/.ssh/bak"
+BAK="$DIR/config.$TIMESTAMP"
+TMP="$HOME/.ssh/config.tmp"
+DOT="$HOME/.ssh/config.dot"
+PNG="$HOME/.ssh/config.png"
+REL='/tmp/sshconfig-relationships.tmp'
+HOSTNAMES='/tmp/sshconfig-hostnames.tmp'
+ANSIBLE_DIR='/etc/ansible'
+ANSIBLE_HOSTS="$ANSIBLE_DIR/hosts"
+ANSIBLE_BAK="$ANSIBLE_HOSTS.$TIMESTAMP.bak"
+BASHRC="$HOME/.bashrc"
+PSSH_ALIAS="$HOME/.pssh_alias"
+PSSH_BIN=`which parallel-ssh`
+ANSIBLE_BIN=`which ansible`
+COLORS='colors'
+
+PR="(Hostname|User|Port|ForwardAgent|IdentityFile|IdentitiesOnly)"
+RF="RemoteForward"
+LF="LocalForward"
+DF="DynamicForward"
+
+T="/tmp/multi-ssh-config.$PID.tmp"
+L="/tmp/multi-ssh-links.$PID.tmp"
+F="/tmp/multi-ssh-files.$PID.tmp"
+
+GEN_DOT=0
+GEN_ANSIBLE=0
+GEN_PSSH=0
+
+mkdir -p "$DIR"
+
+die ()
+{
+  echo "ERROR $1" && exit
+}
+
+while getopts "adp" OPTION
+do
+  case $OPTION in
+    a|--ansible)
+      GEN_ANSIBLE=1
+      ;;
+    d|--dot)
+      GEN_DOT=1
+      ;;
+    p|--parallel-ssh)
+      GEN_PSSH=1
+      ;;
+  esac
+done
+
+printf "Backup $CFG to $BAK\n"
+[[ -e "$CFG" ]] && cp -i "$CFG" "$BAK"
+[[ -e "$TMP" ]] && rm -f "$TMP"
+
+[[ -e default ]] && echo "Add default to $CFG" && cat default > "$TMP"
+echo " " >> "$TMP"
+[[ -e custom ]] && echo "Add custom to $CFG" && cat custom >> "$TMP"
+echo " " >> "$TMP"
+
+[[ ! -d config ]] && mkdir config
+
+find config -type l | sort > "$L"
+find config -type f | egrep -v "_alias" | sort > "$F"
+
+if [ $GEN_DOT -eq 1 ]
+then
+    echo 'graph sshconfig {' > $DOT
+    echo '  rankdir=LR' >>$DOT
+    echo '  node [shape=plaintext]' >>$DOT
+    > "$REL"
+    > "$HOSTNAMES"
+fi
+
+cat "$L" "$F" | sort | while read f
+do
+    [[ -d "$f" ]] && continue
+
+    HOST=$(basename "$f")
+
+    HTMP=`grep -wo "Host $HOST" "$TMP"`
+    [[ "$HTMP" = "Host $HOST" ]] && continue
+
+    echo "Host $HOST" >> "$TMP"
+    printf "Host $HOST ..."
+    egrep -v '(#|Host )' "$f" \
+        | sed 's/^[ \t]*//;s/[ \t]*$//' \
+        | sort \
+        | sed 's/^/     /g' >$T
+
+    IFILE=`grep -o IdentityFile "$T"`
+    IONLY=`grep -o IdentitiesOnly "$T"`
+
+    if [ "$IFILE" = "IdentityFile" ]
+    then
+        if [ "$IONLY" != "IdentitiesOnly" ]
+        then
+            echo "     IdentitiesOnly yes" >> "$T"
+        fi
+    fi
+
+    O=`egrep -i "$PR" $T | sed s/localhost/127.0.0.1/g | sort`
+    PORT=`echo "$O" | grep -wi Port | awk '{print $2}'`
+    HOSTNAME=`echo "$O" | grep -wi Hostname | awk '{print $2}'`
+
+    if [ $GEN_DOT -eq 1 ]
+    then
+        if [ "$HOSTNAME" = "127.0.0.1" ]
+        then
+            cat $F | while read i
+            do
+                egrep "LocalForward $PORT " $i | sort -u | while read _ _ d
+                do
+                    host=`echo $d | cut -d: -f1`
+                    port=`echo $d | cut -d: -f2`
+                    echo $host $HOST >>$HOSTNAMES
+                    h=`echo $HOST | tr - _`
+                    h_port="${h}_${port}"
+                    LO_PORT="lo_$PORT"
+                    echo "localhost -- $LO_PORT [len=4];" >>$REL
+                    echo "$LO_PORT  -- $h_port [len=2];" >>$REL
+                    echo "$h_port -- $h [len=4];" >>$REL
+                done
+            done
+        fi
+    fi
+
+    echo "$O" >> "$TMP"
+    egrep -i "$DF" $T | sort -nk2 >> "$TMP"
+    egrep -i "$RF.*localhost" $T | sed s/localhost/127.0.0.1/g | sort -nk2 >> "$TMP"
+    egrep -i "$RF" $T | egrep -v "(127.0.0.1|localhost)" | sort -nk2 >> "$TMP"
+    egrep -i "$LF.*localhost" $T | sed s/localhost/127.0.0.1/g | sort -nk2 >> "$TMP"
+    egrep -i "$LF" $T | egrep -v "(127.0.0.1|localhost)" | sort -nk2 >> "$TMP"
+    echo "" >> "$TMP"
+
+    a="$f"'_alias'
+    if [ -e "$a" ]
+    then
+        awk '{print $1}' "$a" | sort -u | while read ALIAS
+        do
+            ATMP=`grep -wo "Host $ALIAS" "$TMP"`
+            [[ "$ATMP" = "$ALIAS" ]] && continue
+
+            echo "Host "$ALIAS >> "$TMP"
+            echo "$O" >> "$TMP"
+            printf "\n" >> "$TMP"
+
+            if [ "$GEN_DOT" -eq 1 ]
+            then
+                HH=`echo $HOST | tr - _`
+                echo "$HH -- \"$ALIAS\" [len=6];" >>$REL
+            fi
+        done
+        printf "\n" >> "$TMP"
+        printf " %s alias" `wc -l "$a" | awk '{print $1}'`
+    fi
+    printf "\n"
+
+done
+
+if [ $GEN_DOT -eq 1 ]
+then
+    sort -u $REL >>$DOT
+
+    egrep -o "^lo_[0-9]+" $REL | cut -d_ -f2 | sort -u | while read P
+    do
+        echo "lo_$P [label=\"$P\"]" >>$DOT
+    done
+
+    egrep "^lo_[0-9]+" $REL | awk '{print $3}' | sort -u | while read H
+    do
+        P=`echo $H | cut -d_ -f2`
+        echo "$H [label=\"$P\"]" >>$DOT
+    done
+
+    echo '}' >>$DOT
+fi
+
+[[ -e "$T" ]] && rm -f "$T"
+[[ -e "$L" ]] && rm -f "$L"
+[[ -e "$F" ]] && rm -f "$F"
+
+printf "Move $TMP to $CFG\n"
+mv -f "$TMP" "$CFG"
+printf "Total lines: %s\n" `wc -l "$CFG" | awk '{print $1}'`
+
+grep "Host " "$CFG" \
+    | awk '{print $2}' \
+    | sort \
+    | uniq -c \
+    | egrep -v "^\ +1 " \
+    | sort -k2
+
+printf "Total Hosts: %d\n" `grep -w "Host" "$CFG" | wc -l`
+
+[[ ! -z "$PSSH_BIN" ]] && GEN_PSSH=1
+
+if [ "$GEN_PSSH" -eq 1 ]
+then
+  >"$PSSH_ALIAS"
+fi
+
+if [ ! -z "$ANSIBLE_BIN" ]
+then
+  echo "Enable Ansible Host Generation"
+  GEN_ANSIBLE=1
+fi
+
+if [ "$GEN_ANSIBLE" -eq 1 ]
+then
+  if [ ! -e "$ANSIBLE_HOSTS" ]
+  then
+      sudo mkdir -p "$ANSIBLE_DIR"
+      sudo chown -R $USER: "$ANSIBLE_DIR"
+      touch "$ANSIBLE_HOSTS"
+  fi
+
+  cp $ANSIBLE_HOSTS $ANSIBLE_BAK
+  > "$ANSIBLE_HOSTS"
+fi
+
+[[ ! -d groups ]] && mkdir groups
+
+ls -1dp config/* | grep / | cut -d/ -f2 | while read GROUP
+do
+  GROUP_NAME="$GROUP"
+
+  if [ "$GROUP" = "custom" ]
+  then
+      printf "Replace custom with $USER\n"
+      GROUP_NAME="$USER"
+  fi
+
+  GROUP_FILE="groups/$GROUP_NAME"
+
+  [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "[$GROUP_NAME]" >> "$ANSIBLE_HOSTS"
+
+  > "$GROUP_FILE"
+
+  printf "group $GROUP "
+  [[ -e /usr/bin/realpath ]] || die "sudo apt-get install realpath"
+  GROUP_PATH=`realpath $GROUP_FILE`
+  GROUP_BAK="${GROUP_NAME}backup"
+  PSSH="$PSSH_BIN -i -h $GROUP_PATH"
+
+  if [ "$GEN_PSSH" -eq 1 ]
+  then
+    GN=`echo $GROUP_NAME | tr - _`
+    GB=`echo $GROUP_BAK | tr - _`
+    echo "alias $GN='$PSSH'" >>$PSSH_ALIAS
+    echo "alias $GB='$PSSH -l backuprsync'" >>$PSSH_ALIAS
+  fi
+
+  egrep -lr "Hostname" config/$GROUP/* | sort | while read F
+  do
+    printf "."
+    if [ ! -L "$F" ]
+    then
+      FILE=`basename "$F"`
+      echo "$FILE" >>"$GROUP_FILE"
+
+      [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "$FILE" >> "$ANSIBLE_HOSTS"
+    fi
+  done
+
+  [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "" >> "$ANSIBLE_HOSTS"
+
+  printf " %s hosts \n" `wc -l "$GROUP_FILE" | awk '{print $1}'`
+
+  # FIXME add support for SGROUPs
+  SGROUPS=`ls -p1 config/$GROUP | grep / | tr -d / | sort`
+  for SGROUP in $SGROUPS
+  do
+    SGROUP_FILE="groups/$GROUP_NAME-$SGROUP"
+    > "$SGROUP_FILE"
+    SGROUP_PATH=`realpath $SGROUP_FILE`
+    GS="[$GROUP-$SGROUP]"
+    [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "$GS" >> "$ANSIBLE_HOSTS"
+    printf "subgroup $SGROUP "
+    egrep -lr "Hostname" config/$GROUP/$SGROUP | sort | while read F
+    do
+      printf "."
+      if [ ! -L "$F" ]
+      then
+          FILE=`basename "$F"`
+          echo "$FILE" >>"$SGROUP_FILE"
+          [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "$FILE" >> "$ANSIBLE_HOSTS"
+      fi
+    done
+    [[ "$GEN_ANSIBLE" -eq 1 ]] && echo " " >> "$ANSIBLE_HOSTS"
+    printf " %s hosts \n" `wc -l "$SGROUP_FILE" | awk '{print $1}'`
+
+    if [ "$GEN_PSSH" -eq 1 ]
+    then
+      PSSH="$PSSH_BIN -i -h $SGROUP_PATH"
+      GS=`echo $GROUP_$SGROUP | tr - _`
+      echo "alias $GROUP_$SGROUP='$PSSH'" >>$PSSH_ALIAS
+    fi
+  done
+done
+
+if [ "$GEN_PSSH" -eq 1 ]
+then
+  grep "$PSSH_ALIAS" $BASHRC || echo "source $PSSH_ALIAS" >>$BASHRC
+fi
+
+if [ $GEN_DOT -eq 1 ]
+then
+    [[ -e /usr/bin/neato ]] && neato -Tpng $DOT >$PNG
+fi
+
