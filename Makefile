@@ -1,4 +1,4 @@
 all:
 	chmod +x sshconfig
-	./sshconfig
+	./sshconfig -c config-example
 

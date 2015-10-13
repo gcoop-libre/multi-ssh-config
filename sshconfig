@@ -19,8 +19,9 @@
 PID=`echo $$`
 TIMESTAMP=`date +%s`
 CFG="$HOME/.ssh/config"
-DIR="$HOME/.ssh/bak"
-BAK="$DIR/config.$TIMESTAMP"
+DIR_CFG="$PWD/config"
+DIR_BAK="$HOME/.ssh/bak"
+BAK="$DIR_BAK/config.$TIMESTAMP"
 TMP="$HOME/.ssh/config.tmp"
 DOT="$HOME/.ssh/config.dot"
 PNG="$HOME/.ssh/config.png"
@@ -48,18 +49,21 @@ GEN_DOT=0
 GEN_ANSIBLE=0
 GEN_PSSH=0
 
-mkdir -p "$DIR"
+mkdir -p "$DIR_BAK"
 
 die ()
 {
   echo "ERROR $1" && exit
 }
 
-while getopts "adp" OPTION
+while getopts "ac:dp" OPTION
 do
   case $OPTION in
     a|--ansible)
       GEN_ANSIBLE=1
+      ;;
+    c|--config)
+      DIR_CFG=$OPTARG
       ;;
     d|--dot)
       GEN_DOT=1
@@ -69,6 +73,8 @@ do
       ;;
   esac
 done
+
+[[ ! -d "$DIR_CFG" ]] && die "$DIR_CFG no valid directory"
 
 printf "Backup $CFG to $BAK\n"
 [[ -e "$CFG" ]] && cp -i "$CFG" "$BAK"
@@ -81,8 +87,8 @@ echo " " >> "$TMP"
 
 [[ ! -d config ]] && mkdir config
 
-find config -type l | sort > "$L"
-find config -type f | egrep -v "_alias" | sort > "$F"
+find "$DIR_CFG" -type l | grep -v '\.git' | sort > "$L"
+find "$DIR_CFG" -type f | grep -v '\.git' | egrep -v "_alias" | sort > "$F"
 
 if [ $GEN_DOT -eq 1 ]
 then
@@ -242,7 +248,7 @@ fi
 
 [[ ! -d groups ]] && mkdir groups
 
-ls -1dp config/* | grep / | cut -d/ -f2 | while read GROUP
+ls -1dp $DIR_CFG/* | grep / | rev | cut -d/ -f2 | rev | while read GROUP
 do
   GROUP_NAME="$GROUP"
 
@@ -272,7 +278,7 @@ do
     echo "alias $GB='$PSSH -l backuprsync'" >>$PSSH_ALIAS
   fi
 
-  egrep -lr "Hostname" config/$GROUP/* | sort | while read F
+  egrep -lr "Hostname" $DIR_CFG/$GROUP/* | sort | while read F
   do
     printf "."
     if [ ! -L "$F" ]
@@ -289,7 +295,7 @@ do
   printf " %s hosts \n" `wc -l "$GROUP_FILE" | awk '{print $1}'`
 
   # FIXME add support for SGROUPs
-  SGROUPS=`ls -p1 config/$GROUP | grep / | tr -d / | sort`
+  SGROUPS=`ls -p1 $DIR_CFG/$GROUP | grep / | tr -d / | sort`
   for SGROUP in $SGROUPS
   do
     SGROUP_FILE="groups/$GROUP_NAME-$SGROUP"
@@ -298,7 +304,7 @@ do
     GS="[$GROUP-$SGROUP]"
     [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "$GS" >> "$ANSIBLE_HOSTS"
     printf "subgroup $SGROUP "
-    egrep -lr "Hostname" config/$GROUP/$SGROUP | sort | while read F
+    egrep -lr "Hostname" $DIR_CFG/$GROUP/$SGROUP | sort | while read F
     do
       printf "."
       if [ ! -L "$F" ]
