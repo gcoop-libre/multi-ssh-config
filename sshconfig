@@ -20,6 +20,7 @@ PID=`echo $$`
 TIMESTAMP=`date +%s`
 CFG="$HOME/.ssh/config"
 DIR_CFG="$HOME/.ssh/config.d"
+DIR_GRP="$HOME/.ssh/groups"
 DIR_BAK="$HOME/.ssh/bak"
 BAK="$DIR_BAK/config.$TIMESTAMP"
 TMP="$HOME/.ssh/config.tmp"
@@ -260,9 +261,13 @@ then
   > "$ANSIBLE_HOSTS"
 fi
 
-[[ ! -d groups ]] && mkdir groups
+if [ ! -d "$DIR_GRP" ]
+then
+    printf "Create group directory: $DIR_GRP\n"
+    mkdir "$DIR_GRP"
+fi
 
-ls -1dp $DIR_CFG/* | grep / | rev | cut -d/ -f2 | rev | while read GROUP
+ls -1dp $DIR_CFG/* | grep "/$" | rev | cut -d/ -f2 | rev | while read GROUP
 do
   GROUP_NAME="$GROUP"
 
@@ -272,7 +277,7 @@ do
       GROUP_NAME="$USER"
   fi
 
-  GROUP_FILE="groups/$GROUP_NAME"
+  GROUP_FILE="$DIR_GRP/$GROUP_NAME"
 
   [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "[$GROUP_NAME]" >> "$ANSIBLE_HOSTS"
 
@@ -312,7 +317,7 @@ do
   SGROUPS=`ls -p1 $DIR_CFG/$GROUP | grep / | tr -d / | sort`
   for SGROUP in $SGROUPS
   do
-    SGROUP_FILE="groups/$GROUP_NAME-$SGROUP"
+    SGROUP_FILE="$DIR_GRP/$GROUP_NAME-$SGROUP"
     > "$SGROUP_FILE"
     SGROUP_PATH=`realpath $SGROUP_FILE`
     GS="[$GROUP-$SGROUP]"
