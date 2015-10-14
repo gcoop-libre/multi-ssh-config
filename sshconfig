@@ -74,19 +74,35 @@ do
   esac
 done
 
+printf "Config Directory: $DIR_CFG\n"
+
 [[ -f "$DIR_CFG" ]] && die "$DIR_CFG no valid directory"
 
 printf "Backup $CFG to $BAK\n"
 [[ -e "$CFG" ]] && cp -i "$CFG" "$BAK"
 [[ -e "$TMP" ]] && rm -f "$TMP"
 
-[[ -e default ]] && echo "Add default to $CFG" && cat default > "$TMP"
-echo " " >> "$TMP"
-[[ -e custom ]] && echo "Add custom to $CFG" && cat custom >> "$TMP"
+if [ -e $DIR_CFG/default ]
+then
+    echo "Add default to $CFG"
+    cat $DIR_CFG/default > "$TMP"
+fi
+
 echo " " >> "$TMP"
 
-find "$DIR_CFG/" -type l | grep -v '\.git' | sort > "$L"
-find "$DIR_CFG/" -type f | grep -v '\.git' | egrep -v "_alias" | sort > "$F"
+if [ -e $DIR_CFG/custom ]
+then
+    echo "Add custom to $CFG"
+    cat $DIR_CFG/custom >> "$TMP"
+fi
+
+echo " " >> "$TMP"
+
+> "$L"
+> "$F"
+
+find "$DIR_CFG/" -type l | grep -v "\.git" | sort > "$L"
+find "$DIR_CFG/" -type f | grep -v "\.git" | egrep -v "_alias" | sort > "$F"
 
 if [ $GEN_DOT -eq 1 ]
 then
@@ -97,7 +113,7 @@ then
     > "$HOSTNAMES"
 fi
 
-cat "$L" "$F" | sort | while read f
+cat "$L" "$F" | egrep -v "(default|custom)" | sort | while read f
 do
     [[ -d "$f" ]] && continue
 
