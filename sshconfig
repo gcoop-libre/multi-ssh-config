@@ -19,7 +19,7 @@
 PID=`echo $$`
 TIMESTAMP=`date +%s`
 CFG="$HOME/.ssh/config"
-DIR_CFG="$PWD/config"
+DIR_CFG="$HOME/.ssh/config.d"
 DIR_BAK="$HOME/.ssh/bak"
 BAK="$DIR_BAK/config.$TIMESTAMP"
 TMP="$HOME/.ssh/config.tmp"
@@ -74,7 +74,7 @@ do
   esac
 done
 
-[[ ! -d "$DIR_CFG" ]] && die "$DIR_CFG no valid directory"
+[[ -f "$DIR_CFG" ]] && die "$DIR_CFG no valid directory"
 
 printf "Backup $CFG to $BAK\n"
 [[ -e "$CFG" ]] && cp -i "$CFG" "$BAK"
@@ -85,10 +85,8 @@ echo " " >> "$TMP"
 [[ -e custom ]] && echo "Add custom to $CFG" && cat custom >> "$TMP"
 echo " " >> "$TMP"
 
-[[ ! -d config ]] && mkdir config
-
-find "$DIR_CFG" -type l | grep -v '\.git' | sort > "$L"
-find "$DIR_CFG" -type f | grep -v '\.git' | egrep -v "_alias" | sort > "$F"
+find "$DIR_CFG/" -type l | grep -v '\.git' | sort > "$L"
+find "$DIR_CFG/" -type f | grep -v '\.git' | egrep -v "_alias" | sort > "$F"
 
 if [ $GEN_DOT -eq 1 ]
 then
