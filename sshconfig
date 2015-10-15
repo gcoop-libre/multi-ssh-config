@@ -120,7 +120,7 @@ do
 
     HOST=$(basename "$f")
 
-    HTMP=`grep -wo "Host $HOST" "$TMP"`
+    HTMP=`grep -woh "Host $HOST" "$TMP"`
     [[ "$HTMP" = "Host $HOST" ]] && continue
 
     echo "Host $HOST" >> "$TMP"
@@ -180,8 +180,8 @@ do
     then
         awk '{print $1}' "$a" | sort -u | while read ALIAS
         do
-            ATMP=`grep -wo "Host $ALIAS" "$TMP"`
-            [[ "$ATMP" = "$ALIAS" ]] && continue
+            ATMP=`grep -woh "Host $ALIAS" "$TMP"`
+            [[ "$ATMP" = "Host $ALIAS" ]] && continue
 
             echo "Host "$ALIAS >> "$TMP"
             echo "$O" >> "$TMP"
@@ -294,6 +294,7 @@ do
     GN=`echo $GROUP_NAME | tr - _`
     GB=`echo $GROUP_BAK | tr - _`
     echo "alias $GN='$PSSH'" >>$PSSH_ALIAS
+    printf "alias $GN "
     echo "alias $GB='$PSSH -l backuprsync'" >>$PSSH_ALIAS
   fi
 
@@ -323,6 +324,15 @@ do
     GS="[$GROUP-$SGROUP]"
     [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "$GS" >> "$ANSIBLE_HOSTS"
     printf "subgroup $SGROUP "
+
+    if [ "$GEN_PSSH" -eq 1 ]
+    then
+      PSSH="$PSSH_BIN -i -h $SGROUP_PATH"
+      GS=`echo ${GROUP}_${SGROUP} | tr - _`
+      printf "alias $GS "
+      echo "alias $GS='$PSSH'" >>$PSSH_ALIAS
+    fi
+
     egrep -lr "Hostname" $DIR_CFG/$GROUP/$SGROUP | sort | while read F
     do
       printf "."
@@ -333,15 +343,10 @@ do
           [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "$FILE" >> "$ANSIBLE_HOSTS"
       fi
     done
-    [[ "$GEN_ANSIBLE" -eq 1 ]] && echo " " >> "$ANSIBLE_HOSTS"
-    printf " %s hosts \n" `wc -l "$SGROUP_FILE" | awk '{print $1}'`
 
-    if [ "$GEN_PSSH" -eq 1 ]
-    then
-      PSSH="$PSSH_BIN -i -h $SGROUP_PATH"
-      GS=`echo $GROUP_$SGROUP | tr - _`
-      echo "alias $GROUP_$SGROUP='$PSSH'" >>$PSSH_ALIAS
-    fi
+    [[ "$GEN_ANSIBLE" -eq 1 ]] && echo " " >> "$ANSIBLE_HOSTS"
+
+    printf " %s hosts \n" `wc -l "$SGROUP_FILE" | awk '{print $1}'`
   done
 done
 
