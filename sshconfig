@@ -321,8 +321,6 @@ do
     SGROUP_FILE="$DIR_GRP/$GROUP_NAME-$SGROUP"
     > "$SGROUP_FILE"
     SGROUP_PATH=`realpath $SGROUP_FILE`
-    GS="[${GROUP}_${SGROUP}]"
-    [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "$GS" >> "$ANSIBLE_HOSTS"
     printf "subgroup $SGROUP "
 
     if [ "$GEN_PSSH" -eq 1 ]
@@ -340,11 +338,19 @@ do
       then
           FILE=`basename "$F"`
           echo "$FILE" >>"$SGROUP_FILE"
-          [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "$FILE" >> "$ANSIBLE_HOSTS"
       fi
     done
 
-    [[ "$GEN_ANSIBLE" -eq 1 ]] && echo " " >> "$ANSIBLE_HOSTS"
+    if [ "$GEN_ANSIBLE" -eq 1 ]
+    then
+        echo "[${GROUP}_${SGROUP}]" >> "$ANSIBLE_HOSTS"
+        cat "$SGROUP_FILE" >> "$ANSIBLE_HOSTS"
+        echo " " >> "$ANSIBLE_HOSTS"
+
+        echo "[${SGROUP}]" >> "$ANSIBLE_HOSTS"
+        cat "$SGROUP_FILE" >> "$ANSIBLE_HOSTS"
+        echo " " >> "$ANSIBLE_HOSTS"
+    fi
 
     printf " %s hosts \n" `wc -l "$SGROUP_FILE" | awk '{print $1}'`
   done
