@@ -321,7 +321,7 @@ do
     SGROUP_FILE="$DIR_GRP/$GROUP_NAME-$SGROUP"
     > "$SGROUP_FILE"
     SGROUP_PATH=`realpath $SGROUP_FILE`
-    GS="[$GROUP-$SGROUP]"
+    GS="[${GROUP}_${SGROUP}]"
     [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "$GS" >> "$ANSIBLE_HOSTS"
     printf "subgroup $SGROUP "
 
