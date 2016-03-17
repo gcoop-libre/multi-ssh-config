@@ -24,6 +24,7 @@ DIR_GRP="$HOME/.ssh/groups"
 DIR_BAK="$HOME/.ssh/bak"
 BAK="$DIR_BAK/config.$TIMESTAMP"
 TMP="$HOME/.ssh/config.tmp"
+OPT="$HOME/.ssh/config.opt"
 DOT="$HOME/.ssh/config.dot"
 PNG="$HOME/.ssh/config.png"
 REL='/tmp/sshconfig-relationships.tmp'
@@ -167,7 +168,28 @@ do
         fi
     fi
 
-    echo "$O" >> "$TMP"
+    egrep -i "$PR" "$T" | sed s/localhost/127.0.0.1/g | sort > "$OPT"
+    AGENT=`grep -io "ForwardAgent yes" "$OPT" | tr A-Z a-z | grep -o yes`
+    IDENTITY=`grep -io "IdentityFile"  "$OPT" | wc -l`
+    ONLY=`egrep -io "IdentitiesOnly"   "$OPT" | wc -l`
+
+    if [ "$AGENT" = "yes" ]
+    then
+        if [ "$IDENTITY" -gt 0 ]
+        then
+            # force secure ForwardAgent
+            [[ "$ONLY" -eq 0 ]] && echo "IdentitiesOnly yes" >> "$OPT"
+
+            sort "$OPT" >> "$TMP"
+        else
+            # remove insecure ForwardAgent
+            cat "$OPT" | egrep -vi "(ForwardAgent|Identit)" >> "$TMP"
+        fi
+    else
+        # remove insecure ForwardAgent
+        cat "$OPT" | egrep -v -i "(ForwardAgent|Identit)" >> "$TMP"
+    fi
+
     egrep -i "$DF" $T | sort -nk2 >> "$TMP"
     egrep -i "$RF.*localhost" $T | sed s/localhost/127.0.0.1/g | sort -nk2 >> "$TMP"
     egrep -i "$RF" $T | egrep -v "(127.0.0.1|localhost)" | sort -nk2 >> "$TMP"
