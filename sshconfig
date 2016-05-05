@@ -131,8 +131,8 @@ do
         | sort \
         | sed 's/^/     /g' >$T
 
-    IFILE=`grep -o IdentityFile "$T"`
-    IONLY=`grep -o IdentitiesOnly "$T"`
+    IFILE=`grep -wo IdentityFile "$T"`
+    IONLY=`grep -wo IdentitiesOnly "$T"`
 
     if [ "$IFILE" = "IdentityFile" ]
     then
@@ -186,8 +186,7 @@ do
             cat "$OPT" | egrep -vi "(ForwardAgent|Identit)" >> "$TMP"
         fi
     else
-        # remove insecure ForwardAgent
-        cat "$OPT" | egrep -v -i "(ForwardAgent|Identit)" >> "$TMP"
+        sort "$OPT" >> "$TMP"
     fi
 
     egrep -i "$DF" $T | sort -nk2 >> "$TMP"
