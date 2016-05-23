@@ -123,8 +123,14 @@ do
 
     HTMP=`grep -woh "Host $HOST" "$TMP"`
     [[ "$HTMP" = "Host $HOST" ]] && continue
+    HOST_ALIAS=`echo $HOST | tr _ -`
 
-    echo "Host $HOST" >> "$TMP"
+    if [ "$HOST" = "$HOST_ALIAS" ]
+    then
+        echo "Host $HOST" >> "$TMP"
+    else
+        echo "Host $HOST, $HOST_ALIAS" >> "$TMP"
+    fi
     printf "Host $HOST ..."
     egrep -v '(#|Host )' "$f" \
         | sed 's/^[ \t]*//;s/[ \t]*$//' \
