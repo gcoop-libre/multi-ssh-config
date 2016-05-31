@@ -129,7 +129,7 @@ do
     then
         echo "Host $HOST" >> "$TMP"
     else
-        echo "Host $HOST, $HOST_ALIAS" >> "$TMP"
+        echo "Host $HOST $HOST_ALIAS" >> "$TMP"
     fi
     printf "Host $HOST ..."
     egrep -v '(#|Host )' "$f" \
