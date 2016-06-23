@@ -103,8 +103,8 @@ echo " " >> "$TMP"
 > "$L"
 > "$F"
 
-find "$DIR_CFG/" -type l | grep -v "\.git" | sort > "$L"
-find "$DIR_CFG/" -type f | grep -v "\.git" | egrep -v "_alias" | sort > "$F"
+find "$DIR_CFG/" -type l | egrep -v "$DIR_CFG/\." | sort > "$L"
+find "$DIR_CFG/" -type f | egrep -v "$DIR_CFG/\." | egrep -v "_alias" | sort > "$F"
 
 if [ $GEN_DOT -eq 1 ]
 then
