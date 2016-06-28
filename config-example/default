@@ -13,3 +13,4 @@ Host *
      NoHostAuthenticationForLocalhost yes
      LogLevel FATAL
      AddressFamily inet
+     UseRoaming
