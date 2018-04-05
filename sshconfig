@@ -84,22 +84,7 @@ printf "Backup $CFG to $BAK\n"
 [[ -e "$CFG" ]] && cp -i "$CFG" "$BAK"
 [[ -e "$TMP" ]] && rm -f "$TMP"
 
-if [ -e $DIR_CFG/default ]
-then
-    echo "Add default to $CFG"
-    cat $DIR_CFG/default > "$TMP"
-fi
-
-echo " " >> "$TMP"
-
-if [ -e $DIR_CFG/custom ]
-then
-    echo "Add custom to $CFG"
-    cat $DIR_CFG/custom >> "$TMP"
-fi
-
-echo " " >> "$TMP"
-
+> "$TMP"
 > "$L"
 > "$F"
 
@@ -249,6 +234,22 @@ fi
 [[ -e "$L" ]] && rm -f "$L"
 [[ -e "$F" ]] && rm -f "$F"
 
+if [ -e $DIR_CFG/default ]
+then
+    echo "Add default to $CFG"
+    cat $DIR_CFG/default >> "$TMP"
+fi
+
+echo " " >> "$TMP"
+
+if [ -e $DIR_CFG/custom ]
+then
+    echo "Add custom to $CFG"
+    cat $DIR_CFG/custom >> "$TMP"
+fi
+
+echo " " >> "$TMP"
+
 printf "Move $TMP to $CFG\n"
 mv -f "$TMP" "$CFG"
 printf "Total lines: %s\n" `wc -l "$CFG" | awk '{print $1}'`
@@ -277,15 +278,16 @@ fi
 
 if [ "$GEN_ANSIBLE" -eq 1 ]
 then
-  if [ ! -e "$ANSIBLE_HOSTS" ]
+  if [[ -e "$ANSIBLE_DIR" ]]
   then
-      sudo mkdir -p "$ANSIBLE_DIR"
-      sudo chown -R $USER: "$ANSIBLE_DIR"
-      touch "$ANSIBLE_HOSTS"
-  fi
+    if [ ! -e "$ANSIBLE_HOSTS" ]
+    then
+        touch "$ANSIBLE_HOSTS"
+    fi
 
-  cp $ANSIBLE_HOSTS $ANSIBLE_BAK
-  > "$ANSIBLE_HOSTS"
+    cp $ANSIBLE_HOSTS $ANSIBLE_BAK
+    > "$ANSIBLE_HOSTS"
+  fi
 fi
 
 if [ ! -d "$DIR_GRP" ]
@@ -306,7 +308,10 @@ do
 
   GROUP_FILE="$DIR_GRP/$GROUP_NAME"
 
-  [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "[$GROUP_NAME]" >> "$ANSIBLE_HOSTS"
+  if  [[ "$GEN_ANSIBLE" -eq 1 ]]
+  then
+      [[ -e "$ANSIBLE_HOSTS" ]] && echo "[$GROUP_NAME]" >> "$ANSIBLE_HOSTS"
+  fi
 
   > "$GROUP_FILE"
 
@@ -333,11 +338,17 @@ do
       FILE=`basename "$F"`
       echo "$FILE" >>"$GROUP_FILE"
 
-      [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "$FILE" >> "$ANSIBLE_HOSTS"
+      if [[ "$GEN_ANSIBLE" -eq 1 ]]
+      then
+        [[ -e "$ANSIBLE_HOSTS" ]] && echo "$FILE" >> "$ANSIBLE_HOSTS"
+      fi
     fi
   done
 
-  [[ "$GEN_ANSIBLE" -eq 1 ]] && echo "" >> "$ANSIBLE_HOSTS"
+  if [[ "$GEN_ANSIBLE" -eq 1 ]]
+  then
+    [[ -e "$ANSIBLE_HOSTS" ]] && echo "$FILE" >> "$ANSIBLE_HOSTS"
+  fi
 
   printf " %s hosts \n" `wc -l "$GROUP_FILE" | awk '{print $1}'`
 
@@ -370,13 +381,16 @@ do
 
     if [ "$GEN_ANSIBLE" -eq 1 ]
     then
-        echo "[${GROUP}_${SGROUP}]" >> "$ANSIBLE_HOSTS"
-        cat "$SGROUP_FILE" >> "$ANSIBLE_HOSTS"
-        echo " " >> "$ANSIBLE_HOSTS"
+        if [[ -e "$ANSIBLE_HOSTS" ]]
+        then
+          echo "[${GROUP}_${SGROUP}]" >> "$ANSIBLE_HOSTS"
+          cat "$SGROUP_FILE" >> "$ANSIBLE_HOSTS"
+          echo " " >> "$ANSIBLE_HOSTS"
 
-        echo "[${SGROUP}]" >> "$ANSIBLE_HOSTS"
-        cat "$SGROUP_FILE" >> "$ANSIBLE_HOSTS"
-        echo " " >> "$ANSIBLE_HOSTS"
+          echo "[${SGROUP}]" >> "$ANSIBLE_HOSTS"
+          cat "$SGROUP_FILE" >> "$ANSIBLE_HOSTS"
+          echo " " >> "$ANSIBLE_HOSTS"
+        fi
     fi
 
     printf " %s hosts \n" `wc -l "$SGROUP_FILE" | awk '{print $1}'`
