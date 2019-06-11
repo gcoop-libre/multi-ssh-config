@@ -38,7 +38,7 @@ PSSH_BIN=`which parallel-ssh`
 ANSIBLE_BIN=`which ansible`
 COLORS='colors'
 
-PR="(Hostname|User|Port|ForwardAgent|IdentityFile|IdentitiesOnly|StrictHostKeyChecking|UserKnownHostsFile|AddressFamily|ProxyJump|ProxyCommand)"
+PR="(Hostname|User|Port|ForwardAgent|IdentityFile|IdentitiesOnly|StrictHostKeyChecking|UserKnownHostsFile|AddressFamily|ProxyJump|ProxyCommand|PubkeyAuthentication)"
 RF="RemoteForward"
 LF="LocalForward"
 DF="DynamicForward"
