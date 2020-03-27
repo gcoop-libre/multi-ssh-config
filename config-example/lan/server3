@@ -1,0 +1,3 @@
+Hostname 10.0.0.3
+ProxyJump server2
+User root
